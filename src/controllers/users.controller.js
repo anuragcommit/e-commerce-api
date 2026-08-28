@@ -106,7 +106,7 @@ const registerUser = asyncHandler(async (req, res) => {
     const existingUser = await User.findOne({
         $or: [
             ...(email ? [{ email: email.toLowerCase().trim() }] : []),
-            ...(phone ? [{ phone: phone }] : [])
+            ...(phone ? [{ phone: Number(phone) }] : [])
         ]
     });
 
@@ -168,7 +168,7 @@ const loginUser = asyncHandler(async (req, res) => {
 
     const queryConditions = [
         ...(email?.trim() ? [{ email: email.toLowerCase().trim() }] : []),
-        ...(phone?.trim() ? [{ phone: phone.trim() }] : [])
+        ...(Number(phone)?  [{ phone: Number(phone) }] : [])
     ];
 
     if (queryConditions.length === 0) {
