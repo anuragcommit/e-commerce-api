@@ -16,7 +16,8 @@ const itemSchema = new mongoose.Schema({
     priceAtAddition: {
         type: Number,
     }
-});
+}, { _id: false }
+);
 
 
 const cartSchema = new mongoose.Schema({
@@ -27,9 +28,10 @@ const cartSchema = new mongoose.Schema({
         unique: true,
     },
     items: {
-        type: [itemSchema]
+        type: [itemSchema],
+        default: []
     },
-}, {timestamps: true});
+}, { timestamps: true });
 
 
 export const Cart = mongoose.model("Cart", cartSchema);

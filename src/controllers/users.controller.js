@@ -5,6 +5,7 @@ import { ApiResponse } from "../utils/ApiResponse.js"
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
 import { User } from "../models/user.model.js";
+import { Product } from "../models/product.model.js";
 
 
 const generateAccessAndRefreshTokens = async (userId) => {
@@ -168,7 +169,7 @@ const loginUser = asyncHandler(async (req, res) => {
 
     const queryConditions = [
         ...(email?.trim() ? [{ email: email.toLowerCase().trim() }] : []),
-        ...(Number(phone)?  [{ phone: Number(phone) }] : [])
+        ...(Number(phone) ? [{ phone: Number(phone) }] : [])
     ];
 
     if (queryConditions.length === 0) {
@@ -383,6 +384,10 @@ const deleteUserAccount = asyncHandler(async (req, res) => {
         throw new ApiError(401, "Incorrect password")
     }
 
+    if (user.role === "seller") {
+        await Product.deleteMany({ seller: userId });
+    }
+
     const options = {
         httpOnly: true,
         secure: false,
@@ -402,6 +407,42 @@ const deleteUserAccount = asyncHandler(async (req, res) => {
         ));
 
 });
+
+
+const deleteUserById = asyncHandler(async (req, res) => {
+    const { userId } = req.params;
+
+    if(!mongoose.Types.ObjectId.isValid(userId)){
+        throw new ApiError(400, "Invalid user id");
+    }
+
+    if (userId.toString() === req.user._id.toString()) {
+        throw new ApiError(400, "Admins cannot delete their own account");
+    }
+
+    const user = await User.findById(userId);
+    if (!user) {
+        throw new ApiError(404, "User not found");
+    }
+
+    if(user.role === "admin"){
+        throw new ApiError(403, "Cannot delete another admin account");
+    }
+
+    if (user.role === "seller") {
+        await Product.deleteMany({ seller: userId });
+    }
+
+    await User.findByIdAndDelete(userId);
+
+    return res
+        .status(200)
+        .json(new ApiResponse(
+            200,
+            {},
+            "User and associated product deleted successfully"
+        ));
+})
 
 
 const logoutFromAllDevice = asyncHandler(async (req, res) => {
@@ -453,6 +494,7 @@ export {
     updateUserProfile,
     updateUserPassword,
     deleteUserAccount,
-    logoutFromAllDevice
+    logoutFromAllDevice,
+    deleteUserById,
 
 }
