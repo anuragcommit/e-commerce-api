@@ -5,22 +5,31 @@ import { addressSchema } from "./user.model.js";
 const orderItemSchema = new mongoose.Schema({
     product: {
         type: mongoose.Schema.Types.ObjectId,
-        ref: "Product"
+        ref: "Product",
+        required: true,
     },
     title: {
         type: String,
+        required: true,
+
     },
     price: {
         type: Number,
+        required: true,
+
     },
     quantity: {
         type: Number,
+        required: true,
+        min: 1,
     },
     seller: {
         type: mongoose.Schema.Types.ObjectId,
         ref: "User",
+        required: true,
     },
-});
+}, { _id: false }
+);
 
 const orderSchema = new mongoose.Schema({
     customer: {
@@ -28,8 +37,9 @@ const orderSchema = new mongoose.Schema({
         ref: "User",
         required: true,
     },
-    orderItems: {
-        type: [orderItemSchema]
+    items: {
+        type: [orderItemSchema],
+        required: true,
     },
     shippingAddress: {
         type: addressSchema,
@@ -49,7 +59,7 @@ const orderSchema = new mongoose.Schema({
         enum: ['processing', 'shipped', 'delivered', 'cancelled'],
         default: 'processing',
     },
-}, {timestamps: true});
+}, { timestamps: true });
 
 
 export const Order = mongoose.model("Order", orderSchema);

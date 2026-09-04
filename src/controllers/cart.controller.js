@@ -228,7 +228,48 @@ const removeFromCart = asyncHandler(async (req, res) => {
             cart,
             "Item successfully removed from cart"
         ));
-})
+});
+
+
+const clearCart = asyncHandler(async (req, res) => {
+    const userId = req.user._id;
+
+    const cart = await Cart.findOne({ user: userId });
+    if (!cart) {
+        throw new ApiError(404, "Cart not found");
+    }
+
+    if (cart.items.length === 0) {
+        return res
+            .status(200)
+            .json(new ApiResponse(
+                200,
+                {
+                    cartId: cart._id ,
+                    items: [],
+                    totalItems: 0,
+                    cartTotal: 0
+                },
+                "Cart is already empty"
+            ));
+    }
+
+    cart.items = [];
+    await cart.save();
+
+    return res
+        .status(200)
+        .json(new ApiResponse(
+            200,
+            {
+                cartId: cart._id,
+                items: [],
+                totalItems: 0,
+                cartTotal: 0
+            },
+            "Cart cleared successfully"
+        ));
+});
 
 
 export {
@@ -236,5 +277,6 @@ export {
     getCart,
     updateCartQuantity,
     removeFromCart,
+    clearCart,
 
 }
