@@ -200,15 +200,6 @@ const updateOrderStatus = asyncHandler(async (req, res) => {
         throw new ApiError(404, "Order not found");
     }
 
-    if (role === 'seller') {
-        const isSellerPresent = order.items.some(
-            (item) => item.seller?.toString() === userId.toString()
-        );
-
-        if (!isSellerPresent) {
-            throw new ApiError(403, "Forbidden: This order does not contain order from your store")
-        }
-    }
 
     if (order.orderStatus === normalizedStatus) {
         throw new ApiError(400, `Order is already marked as ${normalizedStatus}`);
