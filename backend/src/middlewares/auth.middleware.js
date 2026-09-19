@@ -36,20 +36,21 @@ const jwtVerify = asyncHandler(async (req, res, next) => {
 
 
 
-const authorizeRoles = (...allowedRoles) => {
+ const authorizeRoles = (...allowedRoles) => {
     return (req, res, next) => {
-
-        if(!req.user) {
-            throw new ApiError("401", "Authentication required before cheking permission");
+        if (!req.user) {
+            return next(new ApiError(401, "Authentication required"));
         }
 
-        if(!allowedRoles.includes(req.user.role)) {
-            throw new ApiError(403, `Forbidden: Role ${req.user.role} is not allowed to access this resource`);
+        const isAllowed = allowedRoles.some((role) => req.user.roles?.includes(role));
+
+        if (!isAllowed) {
+            return next(new ApiError(403, "You do not have permission to perform this action"));
         }
 
         next();
-    }
-}
+    };
+};
 
 
 export { jwtVerify, authorizeRoles }

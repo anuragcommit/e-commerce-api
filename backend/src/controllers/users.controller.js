@@ -104,24 +104,27 @@ const registerUser = asyncHandler(async (req, res) => {
         throw new ApiError(403, "You are not allowed as a admin");
     }
 
+    const cleanEmail = email?.toLowerCase().trim();
+    const cleanPhone = String(phone).trim();
+
     const existingUser = await User.findOne({
-        $or: [
-            ...(email ? [{ email: email.toLowerCase().trim() }] : []),
-            ...(phone ? [{ phone: Number(phone) }] : [])
-        ]
+        $or: [{ email: cleanEmail }, { phone: cleanPhone }]
     });
 
     if (existingUser) {
-        if (existingUser.email === email?.toLowerCase().trim() && existingUser.phone === phone) {
-            throw new ApiError(409, "Phone number and email already in use")
+        const isEmailSame = existingUser.email === cleanEmail;
+        const isPhoneSame = String(existingUser.phone) === cleanPhone;
+
+        if (isEmailSame && isPhoneSame) {
+            throw new ApiError(409, "Email and phone already exist. Please login.");
         }
 
-        if (existingUser.email === email?.toLowerCase().trim()) {
-            throw new ApiError(409, "Email already in use");
+        if (isEmailSame) {
+            throw new ApiError(409, "Email already exists. Please login or use a different email.");
         }
 
-        if (existingUser.phone === phone) {
-            throw new ApiError(409, "Phone already in use");
+        if (isPhoneSame) {
+            throw new ApiError(409, "Phone number already exists. Please login or use a different number.");
         }
     }
 
@@ -129,10 +132,10 @@ const registerUser = asyncHandler(async (req, res) => {
 
     const user = await User.create({
         name: name.trim(),
-        email: email.toLowerCase().trim(),
-        phone,
+        email: cleanEmail,
+        phone: cleanPhone,
         password: hashedPassword,
-        role: role || "customer",
+        roles: role === "seller" ? ["customer", "seller"] : ["customer"],
         tokenVersion: 0
     });
 
@@ -153,7 +156,6 @@ const registerUser = asyncHandler(async (req, res) => {
         )
         );
 });
-
 
 
 const loginUser = asyncHandler(async (req, res) => {
@@ -220,6 +222,40 @@ const loginUser = asyncHandler(async (req, res) => {
         ));
 });
 
+
+const becomeSeller = asyncHandler(async (req, res) => {
+    const user = await User.findById(req.user._id);
+
+    if (!user) {
+        throw new ApiError(404, "User not found");
+    }
+
+    if (user.roles?.includes("seller") || user.role === "seller") {
+        return res.status(200).json(
+            new ApiResponse(200, user, "You are already a registered seller")
+        );
+    }
+
+    if (Array.isArray(user.roles)) {
+        user.roles.push("seller");
+    } else {
+        user.roles = ["customer", "seller"];
+    }
+
+    await user.save({ validateBeforeSave: false });
+
+    // Return updated user object without sensitive fields
+    const updatedUser = await User.findById(user._id).select("-password -refreshToken");
+
+    return res
+        .status(200)
+        .json(new ApiResponse(
+            200,
+            { user: updatedUser },
+            "Successfully upgraded to Seller!"
+        )
+        );
+});
 
 const logOutUser = asyncHandler(async (req, res) => {
 
@@ -409,10 +445,35 @@ const deleteUserAccount = asyncHandler(async (req, res) => {
 });
 
 
+ const deleteSellerAccount = asyncHandler(async (req, res) => {
+    const user = await User.findById(req.user._id);
+
+    if (!user) {
+        throw new ApiError(404, "User not found");
+    }
+
+    if (!user.roles.includes("seller")) {
+        throw new ApiError(400, "You do not have an active seller account.");
+    }
+
+    // 1. Remove "seller" from roles array
+    user.roles = user.roles.filter((role) => role !== "seller");
+    await user.save({ validateBeforeSave: false });
+
+    await Product.updateMany({ seller: user._id }, { $set: { isActive: false } });
+
+    const updatedUser = await User.findById(user._id).select("-password -refreshToken");
+
+    return res.status(200).json(
+        new ApiResponse(200, { user: updatedUser }, "Seller account deactivated. You remain a registered customer.")
+    );
+});
+
+
 const deleteUserById = asyncHandler(async (req, res) => {
     const { userId } = req.params;
 
-    if(!mongoose.Types.ObjectId.isValid(userId)){
+    if (!mongoose.Types.ObjectId.isValid(userId)) {
         throw new ApiError(400, "Invalid user id");
     }
 
@@ -425,7 +486,7 @@ const deleteUserById = asyncHandler(async (req, res) => {
         throw new ApiError(404, "User not found");
     }
 
-    if(user.role === "admin"){
+    if (user.role === "admin") {
         throw new ApiError(403, "Cannot delete another admin account");
     }
 
@@ -496,5 +557,7 @@ export {
     deleteUserAccount,
     logoutFromAllDevice,
     deleteUserById,
+    becomeSeller,
+    deleteSellerAccount,
 
 }
