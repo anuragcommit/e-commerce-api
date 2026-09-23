@@ -36,21 +36,33 @@ const jwtVerify = asyncHandler(async (req, res, next) => {
 
 
 
- const authorizeRoles = (...allowedRoles) => {
+const authorizeRoles = (...allowedRoles) => {
     return (req, res, next) => {
         if (!req.user) {
-            return next(new ApiError(401, "Authentication required"));
+            throw new ApiError(401, "Unauthorized: Please log in first");
         }
 
-        const isAllowed = allowedRoles.some((role) => req.user.roles?.includes(role));
+        // Normalize allowed roles to lowercase
+        const allowed = allowedRoles.map((r) => r.toLowerCase());
 
-        if (!isAllowed) {
-            return next(new ApiError(403, "You do not have permission to perform this action"));
+        // Extract user's roles from either array or string
+        let userRoles = [];
+        if (Array.isArray(req.user.roles)) {
+            userRoles = req.user.roles.map((r) => String(r).toLowerCase());
+        }
+        if (req.user.role) {
+            userRoles.push(String(req.user.role).toLowerCase());
+        }
+
+        // Check if user has at least one matching role
+        const hasPermission = userRoles.some((role) => allowed.includes(role));
+
+        if (!hasPermission) {
+            throw new ApiError(403, "You do not have permission to perform this action");
         }
 
         next();
     };
 };
-
 
 export { jwtVerify, authorizeRoles }

@@ -283,7 +283,7 @@ const logOutUser = asyncHandler(async (req, res) => {
 });
 
 
-const getCurrentUser = asyncHandler(async (req, res) => {
+const getUserProfile = asyncHandler(async (req, res) => {
 
     if (!req.user) {
         throw new ApiError(401, "Unauthorized request");
@@ -299,13 +299,82 @@ const getCurrentUser = asyncHandler(async (req, res) => {
 
 });
 
+const addAddress = asyncHandler(async (req, res) => {
+    const { street, city, state, postalCode, country, isDefault } = req.body;
+
+    if (!street || !city || !state || !postalCode) {
+        throw new ApiError(400, "Please provide complete address details");
+    }
+
+    const user = await User.findById(req.user._id);
+
+    const newAddress = {
+        street,
+        city,
+        state,
+        postalCode,
+        country: country || "India",
+        isDefault: Boolean(isDefault)
+    };
+
+    if (isDefault) {
+        user.address.forEach((addr) => (addr.isDefault = false));
+    }
+
+    user.address.push(newAddress);
+    await user.save();
+
+    return res.status(200).json(new ApiResponse(200, user.address, "Address added successfully"));
+});
+
+const deleteAddress = asyncHandler(async (req, res) => {
+    const { addressId } = req.params;
+
+    const user = await User.findById(req.user._id);
+    user.address = user.address.filter((addr) => addr._id.toString() !== addressId);
+    await user.save();
+
+    return res.status(200).json(new ApiResponse(200, user.address, "Address removed successfully"));
+});
+
+const updateAddress = asyncHandler(async (req, res) => {
+    const { addressId } = req.params;
+    const { street, city, state, postalCode, country, isDefault } = req.body;
+
+    const user = await User.findById(req.user._id);
+    if (!user) throw new ApiError(404, "User not found");
+
+    const target = user.address.id(addressId);
+    if (!target) {
+        throw new ApiError(404, "Address not found");
+    }
+
+    if (street?.trim()) target.street = street.trim();
+    if (city?.trim()) target.city = city.trim();
+    if (state?.trim()) target.state = state.trim();
+    if (postalCode?.trim()) target.postalCode = postalCode.trim();
+    if (country?.trim()) target.country = country.trim();
+
+    if (isDefault !== undefined) {
+        if (Boolean(isDefault)) {
+            user.address.forEach((addr) => (addr.isDefault = false));
+        }
+        target.isDefault = Boolean(isDefault);
+    }
+
+    await user.save();
+
+    return res.status(200).json(
+        new ApiResponse(200, user.address, "Address updated successfully")
+    );
+});
 
 const updateUserProfile = asyncHandler(async (req, res) => {
 
-    const { name, email, phone, address } = req.body;
+    const { name, email, phone } = req.body;
     const userId = req.user._id;
 
-    if (!name?.trim() && !email?.trim() && !phone && !address) {
+    if (!name?.trim() && !email?.trim() && !phone ) {
         throw new ApiError(400, "At least one field is required to update");
     }
 
@@ -339,7 +408,6 @@ const updateUserProfile = asyncHandler(async (req, res) => {
     if (name?.trim()) updateData.name = name.trim();
     if (email?.trim()) updateData.email = email.toLowerCase().trim();
     if (phone) updateData.phone = phone;
-    if (address) updateData.address = address;
 
     const updatedUserDetails = await User.findByIdAndUpdate(
         userId,
@@ -365,16 +433,24 @@ const updateUserProfile = asyncHandler(async (req, res) => {
 const updateUserPassword = asyncHandler(async (req, res) => {
     const userId = req.user._id;
 
-    const { oldPassword, newPassword } = req.body;
+    const { oldPassword, newPassword, confirmPassword } = req.body;
     if (!oldPassword || !newPassword) {
         throw new ApiError(400, "Old Password and New Password is required");
+    }
+
+    if (newPassword.length < 6) {
+        throw new ApiError(400, "New password must be at least 6 characters long");
+    }
+
+    if (confirmPassword && newPassword !== confirmPassword) {
+        throw new ApiError(400, "New password and confirmation do not match");
     }
 
     if (oldPassword === newPassword) {
         throw new ApiError(400, "New password cannot be same as old password");
     }
 
-    const user = await User.findById(userId);
+    const user = await User.findById(userId).select("+password");
     if (!user) {
         throw new ApiError(404, "User not found")
     }
@@ -398,6 +474,35 @@ const updateUserPassword = asyncHandler(async (req, res) => {
             {},
             "Password updated successfully"
         ));
+});
+
+
+const forgotPassword = asyncHandler(async (req, res) => {
+    const { email, phone } = req.body;
+
+    if (!email && !phone) {
+        throw new ApiError(400, "Email or phone number is required");
+    }
+
+    const queryConditions = [
+        ...(email ? [{ email: email.toLowerCase().trim() }] : []),
+        ...(phone ? [{ phone: Number(phone) }] : [])
+    ];
+
+    const user = await User.findOne({ $or: queryConditions });
+
+    if (!user) {
+        throw new ApiError(404, "No account registered with this email or phone number");
+    }
+
+    // When you implement nodemailer or SMS OTP, dispatch the token here.
+    return res.status(200).json(
+        new ApiResponse(
+            200,
+            { identifier: email || phone },
+            "Password assistance request submitted successfully"
+        )
+    );
 });
 
 
@@ -551,7 +656,7 @@ export {
     loginUser,
     logOutUser,
     refreshAccessToken,
-    getCurrentUser,
+    getUserProfile,
     updateUserProfile,
     updateUserPassword,
     deleteUserAccount,
@@ -559,5 +664,8 @@ export {
     deleteUserById,
     becomeSeller,
     deleteSellerAccount,
-
+    forgotPassword,
+    addAddress,
+    deleteAddress,
+    updateAddress,
 }

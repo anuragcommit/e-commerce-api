@@ -1,3 +1,4 @@
+import mongoose from "mongoose";
 import { Cart } from "../models/cart.model.js";
 import { Product } from "../models/product.model.js";
 import { ApiError } from "../utils/ApiError.js";
@@ -54,7 +55,7 @@ const addtoCart = asyncHandler(async (req, res) => {
 
     await cart.save();
 
-    await Cart.findById(cart._id).populate(
+    const populatedCart = await Cart.findById(cart._id).populate(
         {
             path: "items.product",
             select: "title price stock"
@@ -65,7 +66,7 @@ const addtoCart = asyncHandler(async (req, res) => {
         .status(200)
         .json(new ApiResponse(
             200,
-            cart,
+            populatedCart,
             "Item added to cart successfully"
         ));
 
@@ -80,7 +81,7 @@ const getCart = asyncHandler(async (req, res) => {
     const cart = await Cart.findOne({ user: userId }).populate(
         {
             path: "items.product",
-            select: "title price stock images"
+            select: "title price stock brand images originalPrice"
         });
 
     if (!cart || cart.items.length === 0) {

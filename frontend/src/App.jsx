@@ -1,5 +1,6 @@
 // src/App.jsx
 import React from "react";
+import ProtectedRoute from "./components/ProtectedRoute";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "./context/AuthContext";
 import { CartProvider } from "./context/CartContext";
@@ -8,6 +9,11 @@ import LoginPage from "./pages/LoginPage";
 import RegisterPage from "./pages/RegisterPage";
 import CartPage from "./pages/CartPage";
 import BecomeSellerPage from "./pages/BecomeSellerPage";
+import ForgotPasswordPage from "./pages/ForgotPasswordPage";
+import HomePage from "./pages/HomePage";
+import SellerDashboardPage from "./pages/SellerDashboardPage";
+import MyProfilePage from "./pages/MyProfilePage";
+import WishlistPage from "./pages/WishlistPage";
 
 
 function MyOrdersPage() {
@@ -20,61 +26,7 @@ function MyOrdersPage() {
 }
 
 
-function SellerDashboardPage() {
-    return (
-        <div style={{ padding: "40px 20px", maxWidth: "1000px", margin: "0 auto", textAlign: "center" }}>
-            <h2>💼 Seller Dashboard</h2>
-            <p style={{ color: "#64748b", marginTop: "8px" }}>Manage your catalog, inventory, and orders here.</p>
-        </div>
-    );
-}
-
 // Sample full-width banner & product grid matching Amazon reference
-function HomePage() {
-  return (
-    <div style={{ width: "100%", padding: "20px", boxSizing: "border-box" }}>
-      <h2 style={{ marginBottom: "16px", color: "#0f172a" }}>
-        Today's Deals & Trending Products
-      </h2>
-      <div
-        style={{
-          display: "grid",
-          gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))",
-          gap: "16px",
-          width: "100%",
-        }}
-      >
-        {[1, 2, 3, 4, 5, 6].map((item) => (
-          <div
-            key={item}
-            style={{
-              backgroundColor: "#ffffff",
-              padding: "16px",
-              borderRadius: "8px",
-              border: "1px solid #e2e8f0",
-            }}
-          >
-            <div
-              style={{
-                height: "160px",
-                backgroundColor: "#f1f5f9",
-                borderRadius: "4px",
-                marginBottom: "10px",
-              }}
-            />
-            <h4 style={{ margin: "0 0 6px 0", fontSize: "0.95rem" }}>
-              Product Title {item}
-            </h4>
-            <p style={{ fontWeight: 700, margin: 0, color: "#065f46" }}>
-              ₹1,499
-            </p>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
-
 export default function App() {
   return (
     <AuthProvider>
@@ -87,11 +39,14 @@ export default function App() {
           <Routes>
             <Route path="/" element={<HomePage />} />
             <Route path="/login" element={<LoginPage />} />
+            <Route path="/profile" element={<MyProfilePage />} />
             <Route path="/register" element={<RegisterPage />} />
-            <Route path="/cart" element={<CartPage />} />
+            <Route path="/cart" element={<ProtectedRoute><CartPage /></ProtectedRoute>} />
             <Route path="/become-seller" element={<BecomeSellerPage />} />
             <Route path="/my-orders" element={<MyOrdersPage />} />
             <Route path="/seller/dashboard" element={<SellerDashboardPage />} />
+            <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+            <Route path="/wishlist" element={<WishlistPage />} />
             
             //404 unmatched route catching
             <Route

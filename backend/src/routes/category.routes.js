@@ -6,7 +6,7 @@ import { verifyAdmin } from "../middlewares/admin.middleware.js";
 const router = Router();
 
 
-router.route('/get-category').get(getAllCategories);
+router.route('/').get(getAllCategories);
 
 //secured routes
 router.route('/create-category').post(jwtVerify, verifyAdmin, createCategory);
