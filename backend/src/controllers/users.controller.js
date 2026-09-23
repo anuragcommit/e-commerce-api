@@ -644,6 +644,19 @@ const logoutFromAllDevice = asyncHandler(async (req, res) => {
         ));
 });
 
+const getMyAddresses = asyncHandler(async (req, res) => {
+
+    const user = await User.findById(req.user._id);
+    return res
+    .status(200)
+    .json(new ApiResponse(
+        200, 
+        user.address || [], 
+        "Addresses fetched"
+    ));
+});
+
+
 
 
 
@@ -668,4 +681,5 @@ export {
     addAddress,
     deleteAddress,
     updateAddress,
+    getMyAddresses
 }

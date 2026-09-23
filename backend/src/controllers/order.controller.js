@@ -4,6 +4,7 @@ import { ApiResponse } from "../utils/ApiResponse.js";
 import { Order } from "../models/order.model.js";
 import { Cart } from "../models/cart.model.js";
 import { Product } from "../models/product.model.js";
+import mongoose from "mongoose";
 
 
 
@@ -79,8 +80,8 @@ const getMyOrders = asyncHandler(async (req, res) => {
 
     const orders = await Order.find({ customer: userId })
         .sort({ createdAt: -1 })
+        .populate("items.product", "images")
         .select("-__v");
-
 
     return res
         .status(200)
@@ -188,7 +189,7 @@ const updateOrderStatus = asyncHandler(async (req, res) => {
         throw new ApiError(403, "Access denied: Admin and seller only");
     }
 
-    const validStatuses = ['processing', 'shipeed', 'delivered', 'cancelled'];
+    const validStatuses = ['processing', 'shipped', 'delivered', 'cancelled'];
     if (!newStatus || !validStatuses.includes(newStatus.toLowerCase())) {
         throw new ApiError(400, `Status must be one of: ${validStatuses.join(", ")}`);
     }
@@ -226,7 +227,7 @@ const updateOrderStatus = asyncHandler(async (req, res) => {
         }
 
         if (order.paymentStatus === 'paid') {
-            order.paymentStatus === 'refunded'
+            order.paymentStatus = 'refunded'
         }
     }
 

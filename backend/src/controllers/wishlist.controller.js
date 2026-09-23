@@ -73,7 +73,7 @@ export const removeFromWishlist = asyncHandler(async (req, res) => {
     const wishlist = await Wishlist.findOneAndUpdate(
         { user: userId },
         { $pull: { items: { product: productId } } },
-        { new: true }
+        { returnDocument: 'after' }
     ).populate({
         path: "items.product",
         select: "title price originalPrice brand images stock"

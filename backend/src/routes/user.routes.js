@@ -1,6 +1,6 @@
 import { Router } from "express"; 
 import { jwtVerify } from "../middlewares/auth.middleware.js"; 
-import { registerUser, loginUser, logOutUser, refreshAccessToken, getUserProfile, updateUserProfile, updateUserPassword, deleteUserAccount, deleteUserById, becomeSeller, deleteSellerAccount, forgotPassword, addAddress, deleteAddress, updateAddress } from "../controllers/users.controller.js"; 
+import { registerUser, loginUser, logOutUser, refreshAccessToken, getUserProfile, updateUserProfile, updateUserPassword, deleteUserAccount, deleteUserById, becomeSeller, deleteSellerAccount, forgotPassword, addAddress, deleteAddress, updateAddress, getMyAddresses } from "../controllers/users.controller.js"; 
 import { verifyAdmin } from "../middlewares/admin.middleware.js";
 
 const router = Router();
@@ -14,9 +14,10 @@ router.route('/login').post(loginUser);
 router.route('/become-seller').post(jwtVerify, becomeSeller);
 router.route('/logout').post(jwtVerify, logOutUser);
 router.route('/profile').get(jwtVerify, getUserProfile);
-router.route('/address').post(jwtVerify, addAddress);
-router.route('/address/:addressId').delete(jwtVerify, deleteAddress);
-router.route('/address/:addressId').patch(jwtVerify, updateAddress);
+router.route('/addresses').post(jwtVerify, addAddress);
+router.route('/addresses').get(jwtVerify, getMyAddresses);
+router.route('/addresses/:addressId').delete(jwtVerify, deleteAddress);
+router.route('/addresses/:addressId').patch(jwtVerify, updateAddress);
 router.route('/update-account').patch(jwtVerify, updateUserProfile);
 router.route('/update-password').post(jwtVerify, updateUserPassword);
 router.route('/delete-account').post(jwtVerify, deleteUserAccount);

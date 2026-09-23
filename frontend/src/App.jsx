@@ -2,6 +2,7 @@
 import React from "react";
 import ProtectedRoute from "./components/ProtectedRoute";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { Toaster } from 'react-hot-toast';
 import { AuthProvider } from "./context/AuthContext";
 import { CartProvider } from "./context/CartContext";
 import Navbar from "./components/Navbar";
@@ -14,16 +15,11 @@ import HomePage from "./pages/HomePage";
 import SellerDashboardPage from "./pages/SellerDashboardPage";
 import MyProfilePage from "./pages/MyProfilePage";
 import WishlistPage from "./pages/WishlistPage";
-
-
-function MyOrdersPage() {
-    return (
-        <div style={{ padding: "40px 20px", maxWidth: "800px", margin: "0 auto", textAlign: "center" }}>
-            <h2>📦 My Orders</h2>
-            <p style={{ color: "#64748b", marginTop: "8px" }}>No recent orders found.</p>
-        </div>
-    );
-}
+import ProductDetailsPage from "./pages/ProductDetailsPage";
+import WriteReviewPage from "./pages/WriteReviewPage";
+import CheckoutPage from "./pages/CheckoutPage";
+import MyOrdersPage from "./pages/MyOrdersPage";
+import SavedAddressesPage from "./pages/SavedAddressesPage";
 
 
 // Sample full-width banner & product grid matching Amazon reference
@@ -32,6 +28,7 @@ export default function App() {
     <AuthProvider>
       <CartProvider>
         <BrowserRouter>
+        <Toaster position="top-right" reverseOrder={false} />
           {/* The Navbar stays at the top across all pages */}
           <Navbar />
 
@@ -47,6 +44,10 @@ export default function App() {
             <Route path="/seller/dashboard" element={<SellerDashboardPage />} />
             <Route path="/forgot-password" element={<ForgotPasswordPage />} />
             <Route path="/wishlist" element={<WishlistPage />} />
+            <Route path="/product/:productId" element={<ProductDetailsPage />} />
+            <Route path="/product/:productId/write-review" element={<WriteReviewPage />} />
+            <Route path="/checkout" element={<CheckoutPage />} />
+            <Route path="/addresses" element={<SavedAddressesPage />} />
             
             //404 unmatched route catching
             <Route

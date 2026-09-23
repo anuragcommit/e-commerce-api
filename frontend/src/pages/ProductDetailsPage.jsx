@@ -1,125 +1,590 @@
 // src/pages/ProductDetailsPage.jsx
 import React, { useEffect, useState } from "react";
-import { useParams } from "react-router-dom";
+import { useParams, useNavigate, Link } from "react-router-dom";
+import toast from "react-hot-toast";
 import API from "../api/axios";
-import { useCart } from "../context/CartContext"; // 👈 Pull in your context
+import { useCart } from "../context/CartContext";
 
 export default function ProductDetailsPage() {
-    const { productId } = useParams();
-    const [product, setProduct] = useState(null);
-    const [reviews, setReviews] = useState([]);
-    const [rating, setRating] = useState(5);
-    const [comment, setComment] = useState("");
-    const [reviewMessage, setReviewMessage] = useState("");
-    
-    // 👈 Extract addToCart from your context
-    const { addToCart } = useCart(); 
+  const { productId } = useParams();
+  const navigate = useNavigate();
+  const [product, setProduct] = useState(null);
+  const [reviews, setReviews] = useState([]);
+  const [similarProducts, setSimilarProducts] = useState([]);
+  const [isAdded, setIsAdded] = useState(false);
 
+  const { addToCart } = useCart();
+
+  useEffect(() => {
     const loadData = async () => {
-        try {
-            const prodRes = await API.get(`/products/${productId}`);
-            setProduct(prodRes.data.data);
-            const reviewRes = await API.get(`/reviews/product/${productId}`);
-            setReviews(reviewRes.data.data || []);
-        } catch (err) {
-            console.error(err);
+      try {
+        const prodRes = await API.get(`/products/${productId}`);
+        const fetchedProduct = prodRes.data.data;
+        setProduct(fetchedProduct);
+
+        const reviewRes = await API.get(`/reviews/product/${productId}`);
+        setReviews(reviewRes.data.data || []);
+
+        // Safely get category ID or string to fetch similar products
+        const categoryVal =
+          fetchedProduct.category?._id || fetchedProduct.category;
+
+        if (categoryVal) {
+          const similarRes = await API.get(`/products?category=${categoryVal}`);
+          const allCatProducts = Array.isArray(similarRes.data?.data)
+            ? similarRes.data.data
+            : similarRes.data?.data?.products || [];
+          setSimilarProducts(
+            allCatProducts.filter((p) => p._id !== productId).slice(0, 5),
+          );
         }
+      } catch (err) {
+        console.error("Failed to load product details", err);
+      }
     };
+    window.scrollTo(0, 0);
+    loadData();
+  }, [productId]);
 
-    useEffect(() => {
-        loadData();
-    }, [productId]);
-
-    const handleAddToCart = async () => {
-        try {
-            // Let your Context handle the API call and updating the badge count
-            await addToCart(product);
-            alert("Added to cart successfully!");
-        } catch (err) {
-            alert("Failed to add to cart");
-        }
-    };
-
-    const handleSubmitReview = async (e) => {
-        e.preventDefault();
-        setReviewMessage("");
-        try {
-            await API.post(`/reviews/product/${productId}`, { rating: Number(rating), comment });
-            setReviewMessage("Review submitted successfully!");
-            setComment("");
-            loadData();
-        } catch (err) {
-            setReviewMessage(err.response?.data?.message || "Failed to submit review");
-        }
-    };
-
-    if (!product) return <p style={{ padding: "20px" }}>Loading product details...</p>;
-
-    return (
-        <div style={{ maxWidth: "800px", margin: "20px auto", padding: "0 16px" }}>
-            <h2>{product.title}</h2>
-            <p>{product.description}</p>
-            <h3>Price: ₹{product.price}</h3>
-            <p><strong>Stock Available:</strong> {product.stock}</p>
-            <p><strong>⭐ Average Rating:</strong> {product.averageRating || 0} / 5 ({product.totalReviews || 0} reviews)</p>
-
-            <div style={{ marginTop: "20px", marginBottom: "10px" }}>
-                <button 
-                    type="button" 
-                    onClick={handleAddToCart}
-                    disabled={product.stock < 1}
-                    style={{ 
-                        padding: "12px 24px", 
-                        backgroundColor: product.stock < 1 ? "#ccc" : "#ff9f00", 
-                        color: "#fff", 
-                        border: "none", 
-                        borderRadius: "4px", 
-                        fontSize: "1.1rem",
-                        fontWeight: "bold",
-                        cursor: product.stock < 1 ? "not-allowed" : "pointer" 
-                    }}
-                >
-                    {product.stock < 1 ? "Out of Stock" : "🛒 Add to Cart"}
-                </button>
-            </div>
-
-            <hr style={{ margin: "24px 0" }} />
-            <h3>Write a Review</h3>
-            {reviewMessage && <p style={{ color: reviewMessage.includes("success") ? "green" : "red" }}>{reviewMessage}</p>}
-            <form onSubmit={handleSubmitReview} style={{ display: "flex", flexDirection: "column", gap: "10px", maxWidth: "400px" }}>
-                <div>
-                    <label>Rating (1 to 5): </label>
-                    <select value={rating} onChange={(e) => setRating(e.target.value)} style={{ padding: "6px" }}>
-                        <option value="5">5 - Excellent</option>
-                        <option value="4">4 - Good</option>
-                        <option value="3">3 - Average</option>
-                        <option value="2">2 - Poor</option>
-                        <option value="1">1 - Terrible</option>
-                    </select>
-                </div>
-                <textarea placeholder="Write your feedback..." value={comment} onChange={(e) => setComment(e.target.value)} rows={3} style={{ padding: "8px" }} />
-                <button type="submit" style={{ padding: "8px", background: "#3182ce", color: "#fff", border: "none", borderRadius: "4px", cursor: "pointer" }}>
-                    Submit Review
-                </button>
-            </form>
-
-            <hr style={{ margin: "24px 0" }} />
-            <h3>Customer Reviews</h3>
-            {reviews.length === 0 ? (
-                <p>No reviews yet for this product.</p>
-            ) : (
-                reviews.map((rev) => (
-                    <div key={rev._id} style={{ borderBottom: "1px solid #eee", padding: "12px 0" }}>
-                        <p style={{ margin: "0 0 4px 0", fontWeight: "bold" }}>
-                            {rev.user?.username || rev.user?.fullName || rev.user?.name || "Verified Buyer"}
-                        </p>
-                        <p style={{ margin: "0 0 4px 0", color: "#d69e2e" }}>
-                            {"★".repeat(rev.rating)}{"☆".repeat(5 - rev.rating)} ({rev.rating}/5)
-                        </p>
-                        <p style={{ margin: 0 }}>{rev.comment}</p>
-                    </div>
-                ))
-            )}
+  const fireToast = (prod) => {
+    toast.custom(
+      (t) => (
+        <div style={styles.toastCard}>
+          <img
+            src={prod.images?.[0] || "https://placehold.co/50"}
+            alt={prod.title}
+            style={styles.toastImg}
+          />
+          <div>
+            <p style={styles.toastTitle}>{prod.title.substring(0, 30)}...</p>
+            <p style={styles.toastSuccess}>✓ Added to cart</p>
+          </div>
         </div>
+      ),
+      { duration: 2000 },
     );
+  };
+
+  const handleAddToCart = async () => {
+    try {
+      await addToCart(product);
+      setIsAdded(true);
+      setTimeout(() => setIsAdded(false), 1500);
+      fireToast(product);
+    } catch (err) {
+      toast.error("Failed to add to cart");
+    }
+  };
+
+  const handleBuyNow = async () => {
+    try {
+      await addToCart(product);
+      navigate("/cart");
+    } catch (err) {
+      toast.error("Failed to process Buy Now");
+    }
+  };
+
+  if (!product) return <div style={styles.loader}>Loading...</div>;
+
+  const discount =
+    product.originalPrice > product.price
+      ? Math.round(
+          ((product.originalPrice - product.price) / product.originalPrice) *
+            100,
+        )
+      : 0;
+
+  // 👉 FIX: Safely extract names if your backend populates these fields as objects
+  const categoryName =
+    product.category?.name ||
+    (typeof product.category === "string" ? product.category : "Products");
+  const brandName =
+    product.brand?.name ||
+    (typeof product.brand === "string" ? product.brand : "GENERIC");
+
+  return (
+    <div style={styles.pageContainer}>
+      <style>{`
+                .split-layout {
+                    display: flex;
+                    flex-wrap: wrap;
+                    gap: 48px;
+                    align-items: flex-start;
+                }
+                .image-section {
+                    flex: 1 1 400px;
+                    width: 100%;
+                }
+                @media (min-width: 900px) {
+                    .image-section {
+                        position: sticky;
+                        top: 100px;
+                    }
+                }
+                .similar-grid {
+                    display: grid;
+                    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+                    gap: 16px;
+                    margin-top: 20px;
+                }
+                .similar-card {
+                    transition: transform 0.2s ease, box-shadow 0.2s ease;
+                }
+                .similar-card:hover {
+                    transform: translateY(-4px);
+                    box-shadow: 0 10px 20px rgba(0,0,0,0.08);
+                }
+            `}</style>
+
+      <div style={styles.breadcrumbs}>
+        <Link to="/" style={styles.breadcrumbLink}>
+          Home
+        </Link>
+        <span style={styles.breadcrumbSeparator}>/</span>
+        <span style={styles.breadcrumbLink}>{categoryName}</span>
+        <span style={styles.breadcrumbSeparator}>/</span>
+        <span style={styles.breadcrumbCurrent}>{brandName}</span>
+      </div>
+
+      <div className="split-layout">
+        <div className="image-section">
+          <div style={styles.mainImageBox}>
+            <img
+              src={product.images?.[0] || "https://placehold.co/600x800"}
+              alt={product.title}
+              style={styles.mainImage}
+            />
+          </div>
+        </div>
+
+        <div style={styles.infoSection}>
+          <h1 style={styles.brand}>{brandName}</h1>
+          <h2 style={styles.title}>{product.title}</h2>
+
+          <div style={styles.ratingCapsule}>
+            <span style={styles.ratingStars}>
+              {product.averageRating || 4.2} ★
+            </span>
+            <span style={styles.ratingCount}>| {reviews.length} Ratings</span>
+          </div>
+
+          <div style={styles.divider} />
+
+          <div style={styles.priceContainer}>
+            <span style={styles.currentPrice}>
+              ₹{product.price?.toLocaleString("en-IN")}
+            </span>
+            {product.originalPrice > product.price && (
+              <>
+                <span style={styles.mrp}>
+                  MRP{" "}
+                  <span style={styles.strikethrough}>
+                    ₹{product.originalPrice?.toLocaleString("en-IN")}
+                  </span>
+                </span>
+                <span style={styles.discountBadge}>({discount}% OFF)</span>
+              </>
+            )}
+          </div>
+          <p style={styles.taxText}>inclusive of all taxes</p>
+
+          <div style={styles.actionButtons}>
+            <button
+              onClick={handleAddToCart}
+              disabled={product.stock < 1 || isAdded}
+              style={{
+                ...styles.addToBagBtn,
+                opacity: product.stock < 1 ? 0.5 : 1,
+              }}
+            >
+              <span style={{ marginRight: "8px", fontSize: "1.2rem" }}>🛍️</span>
+              {isAdded
+                ? "ADDED TO BAG"
+                : product.stock < 1
+                  ? "OUT OF STOCK"
+                  : "ADD TO CART"}
+            </button>
+            <button
+              onClick={handleBuyNow}
+              disabled={product.stock < 1}
+              style={{
+                ...styles.buyNowBtn,
+                opacity: product.stock < 1 ? 0.5 : 1,
+              }}
+            >
+              BUY NOW ➔
+            </button>
+          </div>
+
+          <div style={styles.servicePromises}>
+            <div style={styles.promiseItem}>
+              <span style={styles.promiseIcon}>🛡️</span>
+              <span style={styles.promiseText}>100% Original</span>
+            </div>
+            <div style={styles.promiseItem}>
+              <span style={styles.promiseIcon}>🔄</span>
+              <span style={styles.promiseText}>14 Day Returns</span>
+            </div>
+            <div style={styles.promiseItem}>
+              <span style={styles.promiseIcon}>🚚</span>
+              <span style={styles.promiseText}>Free Delivery</span>
+            </div>
+          </div>
+
+          <div style={styles.divider} />
+
+          <h3 style={styles.sectionHeading}>PRODUCT DETAILS</h3>
+          <p style={styles.description}>{product.description}</p>
+
+          <div style={styles.divider} />
+
+          <div style={styles.reviewsHeader}>
+            <h3 style={styles.sectionHeading}>CUSTOMER REVIEWS</h3>
+            <button
+              onClick={() => navigate(`/product/${productId}/write-review`)}
+              style={styles.writeReviewBtn}
+            >
+              Write a Review
+            </button>
+          </div>
+
+          <div style={styles.reviewsList}>
+            {reviews.length === 0 ? (
+              <p style={styles.noReviews}>
+                No reviews yet. Be the first to review this product!
+              </p>
+            ) : (
+              reviews.map((rev) => {
+                // Safe extraction for review author names
+                const reviewerName =
+                  rev.user?.name ||
+                  rev.user?.username ||
+                  (typeof rev.user === "string" ? rev.user : "Verified Buyer");
+                return (
+                  <div key={rev._id} style={styles.reviewCard}>
+                    <div style={styles.reviewCardHeader}>
+                      <div style={styles.reviewStars}>
+                        {"★".repeat(rev.rating)}
+                        {"☆".repeat(5 - rev.rating)}
+                      </div>
+                      <span style={styles.reviewAuthor}>{reviewerName}</span>
+                    </div>
+                    <p style={styles.reviewText}>{rev.comment}</p>
+                    {rev.image && (
+                      <img
+                        src={rev.image}
+                        alt="Review"
+                        style={styles.reviewImage}
+                      />
+                    )}
+                  </div>
+                );
+              })
+            )}
+          </div>
+        </div>
+      </div>
+
+      {similarProducts.length > 0 && (
+        <div style={styles.similarSection}>
+          <h3 style={styles.similarHeading}>SIMILAR PRODUCTS</h3>
+          <div className="similar-grid">
+            {similarProducts.map((simProd) => {
+              // Safe extraction for similar product brands
+              const simBrandName =
+                simProd.brand?.name ||
+                (typeof simProd.brand === "string" ? simProd.brand : "GENERIC");
+              return (
+                <Link
+                  to={`/product/${simProd._id}`}
+                  key={simProd._id}
+                  className="similar-card"
+                  style={styles.similarProductCard}
+                >
+                  <div style={styles.simImageWrap}>
+                    <img
+                      src={simProd.images?.[0] || "https://placehold.co/200"}
+                      alt={simProd.title}
+                      style={styles.simImage}
+                    />
+                  </div>
+                  <div style={styles.simInfo}>
+                    <p style={styles.simBrand}>{simBrandName}</p>
+                    <p style={styles.simTitle}>{simProd.title}</p>
+                    <p style={styles.simPrice}>
+                      ₹{simProd.price?.toLocaleString("en-IN")}
+                    </p>
+                  </div>
+                </Link>
+              );
+            })}
+          </div>
+        </div>
+      )}
+    </div>
+  );
 }
+
+const styles = {
+  pageContainer: {
+    maxWidth: "1200px",
+    margin: "0 auto",
+    padding: "16px 20px 60px 20px",
+  },
+  breadcrumbs: {
+    display: "flex",
+    alignItems: "center",
+    fontSize: "0.85rem",
+    marginBottom: "24px",
+    color: "#282c3f",
+    flexWrap: "wrap",
+  },
+  breadcrumbLink: {
+    textDecoration: "none",
+    color: "#535665",
+    textTransform: "capitalize",
+  },
+  breadcrumbSeparator: { margin: "0 8px", color: "#d4d5d9" },
+  breadcrumbCurrent: { fontWeight: "700", textTransform: "capitalize" },
+  mainImageBox: {
+    width: "100%",
+    backgroundColor: "#f5f5f6",
+    borderRadius: "4px",
+    overflow: "hidden",
+    display: "flex",
+    justifyContent: "center",
+  },
+  mainImage: {
+    width: "100%",
+    height: "auto",
+    objectFit: "contain",
+    maxHeight: "600px",
+  },
+  infoSection: { flex: "1 1 500px", display: "flex", flexDirection: "column" },
+  brand: {
+    fontSize: "1.5rem",
+    fontWeight: "700",
+    color: "#282c3f",
+    margin: "0 0 8px 0",
+    textTransform: "uppercase",
+  },
+  title: {
+    fontSize: "1.2rem",
+    fontWeight: "400",
+    color: "#535665",
+    margin: "0 0 16px 0",
+    lineHeight: "1.4",
+  },
+  ratingCapsule: {
+    display: "inline-flex",
+    alignItems: "center",
+    border: "1px solid #eaeaec",
+    padding: "4px 12px",
+    borderRadius: "2px",
+    alignSelf: "flex-start",
+  },
+  ratingStars: {
+    fontWeight: "700",
+    color: "#282c3f",
+    fontSize: "0.9rem",
+    marginRight: "8px",
+  },
+  ratingCount: { color: "#535665", fontSize: "0.9rem" },
+  divider: { height: "1px", backgroundColor: "#eaeaec", margin: "24px 0" },
+  priceContainer: { display: "flex", alignItems: "baseline", gap: "12px" },
+  currentPrice: { fontSize: "1.8rem", fontWeight: "700", color: "#282c3f" },
+  mrp: { fontSize: "1.1rem", color: "#7e818c" },
+  strikethrough: { textDecoration: "line-through" },
+  discountBadge: { fontSize: "1.1rem", fontWeight: "700", color: "#ff905a" },
+  taxText: {
+    fontSize: "0.85rem",
+    color: "#03a685",
+    fontWeight: "700",
+    margin: "6px 0 24px 0",
+  },
+  actionButtons: {
+    display: "flex",
+    gap: "16px",
+    flexWrap: "wrap",
+    marginTop: "10px",
+  },
+  addToBagBtn: {
+    flex: 1,
+    minWidth: "220px",
+    backgroundColor: "#ffffff",
+    color: "#000000",
+    border: "1 px solid #000000",
+    padding: "16px",
+    borderRadius: "4px",
+    fontWeight: "700",
+    fontSize: "1rem",
+    cursor: "pointer",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  buyNowBtn: {
+    flex: 1,
+    minWidth: "220px",
+    backgroundColor: "#dc2626",
+    color: "#ffffff",
+    border: "none",
+    padding: "16px",
+    borderRadius: "4px",
+    fontWeight: "700",
+    fontSize: "1rem",
+    cursor: "pointer",
+  },
+  servicePromises: {
+    display: "flex",
+    gap: "24px",
+    marginTop: "32px",
+    flexWrap: "wrap",
+  },
+  promiseItem: { display: "flex", alignItems: "center", gap: "8px" },
+  promiseIcon: { fontSize: "1.4rem" },
+  promiseText: { fontSize: "0.85rem", color: "#535665", fontWeight: "500" },
+  sectionHeading: {
+    fontSize: "1rem",
+    fontWeight: "700",
+    color: "#282c3f",
+    margin: "0 0 16px 0",
+    letterSpacing: "0.5px",
+  },
+  description: {
+    fontSize: "1rem",
+    color: "#535665",
+    lineHeight: "1.6",
+    whiteSpace: "pre-line",
+  },
+  reviewsHeader: {
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: "16px",
+  },
+  writeReviewBtn: {
+    backgroundColor: "transparent",
+    color: "#ff3e6c",
+    border: "1px solid #ff3e6c",
+    padding: "8px 16px",
+    borderRadius: "4px",
+    fontWeight: "600",
+    cursor: "pointer",
+  },
+  reviewsList: { display: "flex", flexDirection: "column", gap: "20px" },
+  noReviews: { color: "#7e818c", fontStyle: "italic", fontSize: "0.95rem" },
+  reviewCard: {
+    backgroundColor: "#fafbfc",
+    padding: "16px",
+    borderRadius: "4px",
+    border: "1px solid #eaeaec",
+  },
+  reviewCardHeader: {
+    display: "flex",
+    justifyContent: "space-between",
+    marginBottom: "8px",
+  },
+  reviewStars: { color: "#14b8a6", letterSpacing: "2px", fontSize: "1.1rem" },
+  reviewAuthor: { fontSize: "0.85rem", color: "#7e818c", fontWeight: "600" },
+  reviewText: {
+    fontSize: "0.95rem",
+    color: "#282c3f",
+    lineHeight: "1.5",
+    margin: "0 0 10px 0",
+  },
+  reviewImage: {
+    width: "80px",
+    height: "80px",
+    objectFit: "cover",
+    borderRadius: "4px",
+    border: "1px solid #eaeaec",
+    marginTop: "8px",
+  },
+  similarSection: {
+    marginTop: "60px",
+    paddingTop: "40px",
+    borderTop: "1px solid #eaeaec",
+  },
+  similarHeading: {
+    fontSize: "1.2rem",
+    fontWeight: "700",
+    color: "#282c3f",
+    marginBottom: "8px",
+  },
+  similarProductCard: {
+    textDecoration: "none",
+    color: "inherit",
+    backgroundColor: "#fff",
+    border: "1px solid #eaeaec",
+    borderRadius: "4px",
+    display: "flex",
+    flexDirection: "column",
+    overflow: "hidden",
+  },
+  simImageWrap: {
+    height: "220px",
+    backgroundColor: "#f5f5f6",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    padding: "10px",
+  },
+  simImage: { maxHeight: "100%", maxWidth: "100%", objectFit: "contain" },
+  simInfo: { padding: "12px" },
+  simBrand: {
+    fontSize: "0.8rem",
+    fontWeight: "700",
+    color: "#282c3f",
+    marginBottom: "4px",
+    overflow: "hidden",
+    textOverflow: "ellipsis",
+    whiteSpace: "nowrap",
+  },
+  simTitle: {
+    fontSize: "0.85rem",
+    color: "#535665",
+    marginBottom: "8px",
+    overflow: "hidden",
+    textOverflow: "ellipsis",
+    whiteSpace: "nowrap",
+  },
+  simPrice: { fontSize: "0.95rem", fontWeight: "700", color: "#282c3f" },
+  loader: {
+    padding: "100px",
+    textAlign: "center",
+    fontSize: "1.2rem",
+    color: "#7e818c",
+  },
+  toastCard: {
+    display: "flex",
+    alignItems: "center",
+    background: "#ffffff",
+    padding: "12px 16px",
+    borderRadius: "8px",
+    boxShadow: "0 10px 25px rgba(0,0,0,0.1)",
+    border: "1px solid #e2e8f0",
+    gap: "14px",
+  },
+  toastImg: {
+    width: "45px",
+    height: "45px",
+    objectFit: "contain",
+    borderRadius: "4px",
+    backgroundColor: "#f8fafc",
+    padding: "2px",
+  },
+  toastTitle: {
+    margin: "0 0 4px 0",
+    fontWeight: 700,
+    fontSize: "0.9rem",
+    color: "#0f172a",
+  },
+  toastSuccess: {
+    margin: 0,
+    fontSize: "0.8rem",
+    color: "#10b981",
+    fontWeight: 700,
+  },
+};

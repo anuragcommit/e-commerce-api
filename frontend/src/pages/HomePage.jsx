@@ -1,8 +1,9 @@
 // src/pages/HomePage.jsx
 import React, { useEffect, useState } from "react";
-import { useLocation } from "react-router-dom";
+import { useLocation, Link } from "react-router-dom"; // 👈 Imported Link
 import API from "../api/axios";
 import { useCart } from "../context/CartContext";
+import toast from "react-hot-toast";
 
 export default function HomePage() {
     const location = useLocation();
@@ -13,33 +14,61 @@ export default function HomePage() {
     const [error, setError] = useState("");
     const [addedId, setAddedId] = useState(null);
 
-  useEffect(() => {
-    const fetchCatalog = async () => {
-        setLoading(true);
-        setError("");
+    useEffect(() => {
+        const fetchCatalog = async () => {
+            setLoading(true);
+            setError("");
+            try {
+                const query = location.search || "";
+                const res = await API.get(`/products${query}`);
+
+                // Safely extract the array whether it returns { products: [] } or a raw array []
+                const data = res.data?.data;
+                const items = Array.isArray(data) ? data : (data?.products || []);
+
+                setProducts(items);
+            } catch (err) {
+                setError("Failed to load products. Please check server connectivity.");
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        fetchCatalog();
+    }, [location.search]);
+
+    const handleAddToCart = async (product) => {
         try {
-            const query = location.search || "";
-            const res = await API.get(`/products${query}`);
+            await addToCart(product);
+            
+            // Trigger the temporary "Added!" button state
+            setAddedId(product._id);
+            setTimeout(() => setAddedId(null), 1500);
 
-            // Safely extract the array whether it returns { products: [] } or a raw array []
-            const data = res.data?.data;
-            const items = Array.isArray(data) ? data : (data?.products || []);
-
-            setProducts(items);
+            // Trigger the beautiful custom image toast
+            toast.custom((t) => (
+                <div style={{ 
+                    display: 'flex', alignItems: 'center', background: '#ffffff', padding: '12px 16px', borderRadius: '8px', boxShadow: '0 10px 25px rgba(0,0,0,0.1)', border: '1px solid #e2e8f0', gap: '14px',
+                    animation: t.visible ? 'custom-enter 0.3s ease' : 'custom-leave 0.3s ease'
+                }}>
+                    <img 
+                        src={product.images?.[0] || "https://placehold.co/50"} 
+                        alt={product.title} 
+                        style={{ width: '45px', height: '45px', objectFit: 'contain', borderRadius: '4px', backgroundColor: '#f8fafc', padding: '2px' }} 
+                    />
+                    <div>
+                        <p style={{ margin: '0 0 4px 0', fontWeight: 700, fontSize: '0.9rem', color: '#0f172a' }}>
+                            {product.title.length > 30 ? product.title.substring(0, 30) + '...' : product.title}
+                        </p>
+                        <p style={{ margin: 0, fontSize: '0.8rem', color: '#10b981', fontWeight: 700 }}>
+                            ✓ Added to cart
+                        </p>
+                    </div>
+                </div>
+            ), { duration: 200 });
         } catch (err) {
-            setError("Failed to load products. Please check server connectivity.");
-        } finally {
-            setLoading(false);
+            toast.error("Failed to add to cart");
         }
-    };
-
-    fetchCatalog();
-}, [location.search]);
-
-    const handleAddToCart = (product) => {
-        addToCart(product);
-        setAddedId(product._id);
-        setTimeout(() => setAddedId(null), 1200);
     };
 
     return (
@@ -57,6 +86,13 @@ export default function HomePage() {
                 .product-card:hover {
                     transform: translateY(-3px);
                     box-shadow: 0 8px 20px rgba(0,0,0,0.08);
+                }
+                .product-link {
+                    text-decoration: none;
+                    color: inherit;
+                    display: flex;
+                    flex-direction: column;
+                    flex: 1;
                 }
                 @media (max-width: 540px) {
                     .product-grid {
@@ -103,60 +139,64 @@ export default function HomePage() {
 
                         return (
                             <div key={item._id} className="product-card card-padding" style={styles.card}>
-                                {/* Image Container */}
-                                <div className="card-image-box" style={styles.imageBox}>
-                                    <img
-                                        src={item.images?.[0] || "https://placehold.co/300x300"}
-                                        alt={item.title}
-                                        style={styles.image}
-                                        loading="lazy"
-                                    />
-                                    {discount > 0 && (
-                                        <span style={styles.discountBadge}>{discount}% off</span>
-                                    )}
-                                </div>
-
-                                {/* Details */}
-                                <div style={styles.info}>
-                                    <span style={styles.brand}>{item.brand}</span>
-                                    <h3 className="card-title" style={styles.title} title={item.title}>
-                                        {item.title}
-                                    </h3>
-
-                                    {/* Star Rating Capsule */}
-                                    <div style={styles.ratingRow}>
-                                        <span style={styles.ratingBadge}>
-                                            {item.rating || 4.2} ★
-                                        </span>
-                                        <span style={styles.reviewsCount}>
-                                            ({(item.numReviews || 0).toLocaleString()})
-                                        </span>
-                                    </div>
-
-                                    {/* Price Line */}
-                                    <div style={styles.priceRow}>
-                                        <span style={styles.currentPrice}>
-                                            ₹{item.price.toLocaleString("en-IN")}
-                                        </span>
-                                        {item.originalPrice > item.price && (
-                                            <span style={styles.originalPrice}>
-                                                ₹{item.originalPrice.toLocaleString("en-IN")}
-                                            </span>
+                                
+                                {/* 👈 The Link wrapper connects the homepage to your product details page */}
+                                <Link to={`/product/${item._id}`} className="product-link">
+                                    {/* Image Container */}
+                                    <div className="card-image-box" style={styles.imageBox}>
+                                        <img
+                                            src={item.images?.[0] || "https://placehold.co/300x300"}
+                                            alt={item.title}
+                                            style={styles.image}
+                                            loading="lazy"
+                                        />
+                                        {discount > 0 && (
+                                            <span style={styles.discountBadge}>{discount}% off</span>
                                         )}
                                     </div>
 
-                                    {/* Add to Cart Button */}
-                                    <button
-                                        type="button"
-                                        onClick={() => handleAddToCart(item)}
-                                        style={{
-                                            ...styles.addToCartBtn,
-                                            backgroundColor: addedId === item._id ? "#10b981" : "#fb641b"
-                                        }}
-                                    >
-                                        {addedId === item._id ? "✓ Added" : "Add to Cart"}
-                                    </button>
-                                </div>
+                                    {/* Details */}
+                                    <div style={styles.info}>
+                                        <span style={styles.brand}>{item.brand}</span>
+                                        <h3 className="card-title" style={styles.title} title={item.title}>
+                                            {item.title}
+                                        </h3>
+
+                                        {/* Star Rating Capsule */}
+                                        <div style={styles.ratingRow}>
+                                            <span style={styles.ratingBadge}>
+                                                {item.rating || 4.2} ★
+                                            </span>
+                                            <span style={styles.reviewsCount}>
+                                                ({(item.numReviews || 0).toLocaleString()})
+                                            </span>
+                                        </div>
+
+                                        {/* Price Line */}
+                                        <div style={styles.priceRow}>
+                                            <span style={styles.currentPrice}>
+                                                ₹{item.price.toLocaleString("en-IN")}
+                                            </span>
+                                            {item.originalPrice > item.price && (
+                                                <span style={styles.originalPrice}>
+                                                    ₹{item.originalPrice.toLocaleString("en-IN")}
+                                                </span>
+                                            )}
+                                        </div>
+                                    </div>
+                                </Link>
+
+                                {/* Add to Cart Button stays OUTSIDE the Link so clicking it doesn't navigate */}
+                                <button
+                                    type="button"
+                                    onClick={() => handleAddToCart(item)}
+                                    style={{
+                                        ...styles.addToCartBtn,
+                                        backgroundColor: addedId === item._id ? "#10b981" : "#fb641b"
+                                    }}
+                                >
+                                    {addedId === item._id ? "✓ Added" : "Add to Cart"}
+                                </button>
                             </div>
                         );
                     })}
@@ -278,7 +318,8 @@ const styles = {
         fontSize: "0.85rem",
         fontWeight: "700",
         cursor: "pointer",
-        transition: "background-color 0.2s ease"
+        transition: "background-color 0.2s ease",
+        marginTop: "auto" // pushes button to the bottom
     },
     skeletonCard: {
         height: "320px",
