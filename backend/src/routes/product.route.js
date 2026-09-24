@@ -1,13 +1,13 @@
 import { Router } from "express";
 import { authorizeRoles, jwtVerify } from "../middlewares/auth.middleware.js";
 import { verifySeller } from "../middlewares/seller.middleware.js";
-import { createProduct, deleteProduct, getAllProducts, getProductById, getSellerProducts, updateProduct } from "../controllers/products.controller.js";
+import { createProduct, deleteProduct, getAllProducts, getProductById, getSearchSuggestions, getSellerProducts, updateProduct } from "../controllers/products.controller.js";
 
 
 const router = Router();
 
-
 router.route('/').get(getAllProducts);
+router.route('/suggestions').get(getSearchSuggestions);
 router.route('/seller/my-products').get(jwtVerify, verifySeller, getSellerProducts);
 router.route('/:id').get(getProductById);
 

@@ -374,7 +374,7 @@ const updateUserProfile = asyncHandler(async (req, res) => {
     const { name, email, phone } = req.body;
     const userId = req.user._id;
 
-    if (!name?.trim() && !email?.trim() && !phone ) {
+    if (!name?.trim() && !email?.trim() && !phone) {
         throw new ApiError(400, "At least one field is required to update");
     }
 
@@ -550,7 +550,7 @@ const deleteUserAccount = asyncHandler(async (req, res) => {
 });
 
 
- const deleteSellerAccount = asyncHandler(async (req, res) => {
+const deleteSellerAccount = asyncHandler(async (req, res) => {
     const user = await User.findById(req.user._id);
 
     if (!user) {
@@ -648,18 +648,48 @@ const getMyAddresses = asyncHandler(async (req, res) => {
 
     const user = await User.findById(req.user._id);
     return res
-    .status(200)
-    .json(new ApiResponse(
-        200, 
-        user.address || [], 
-        "Addresses fetched"
-    ));
+        .status(200)
+        .json(new ApiResponse(
+            200,
+            user.address || [],
+            "Addresses fetched"
+        ));
 });
 
 
+const getMyWishlist = asyncHandler(async (req, res) => {
+    const user = await User.findById(req.user._id)
+        .populate("wishlist")
+    return res
+        .status(200)
+        .json(new ApiResponse(
+            200,
+            user.wishlist,
+            "Wishlist fetched"
+        ));
+});
 
 
+const toggleWishlist = asyncHandler(async (req, res) => {
+    const { productId } = req.params;
+    const user = await User.findById(req.user._id);
 
+    const isWished = user.wishlist.includes(productId);
+
+    if (isWished) {
+        // Remove it
+        user.wishlist = user.wishlist.filter(id => id.toString() !== productId);
+    } else {
+        // Add it
+        user.wishlist.push(productId);
+    }
+
+    await user.save({ validateBeforeSave: false });
+
+    return res.status(200).json(
+        new ApiResponse(200, user.wishlist, isWished ? "Removed from wishlist" : "Added to wishlist")
+    );
+});
 
 
 
@@ -681,5 +711,7 @@ export {
     addAddress,
     deleteAddress,
     updateAddress,
-    getMyAddresses
+    getMyAddresses,
+    getMyWishlist,
+    toggleWishlist,
 }

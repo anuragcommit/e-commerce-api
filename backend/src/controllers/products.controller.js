@@ -228,6 +228,19 @@ import { Category } from "../models/category.model.js"
 // @desc    Create a product (Seller/Admin only)
 // @route   POST /api/products/create-product
 
+export const getSearchSuggestions = asyncHandler(async (req, res) => {
+    const { q } = req.query;
+    if (!q?.trim()) return res.status(200).json(new ApiResponse(200, []));
+
+    // Fetch only the titles of the top 5 matches
+    const suggestions = await Product.find({
+        title: new RegExp(q.trim(), "i")
+    })
+        .select("title _id")
+        .limit(5);
+
+    return res.status(200).json(new ApiResponse(200, suggestions));
+});
 
 const createProduct = asyncHandler(async (req, res) => {
     const { title, description, price, originalPrice, category, stock, brand, images } = req.body;
@@ -303,26 +316,26 @@ const getAllProducts = asyncHandler(async (req, res) => {
     }
 
     // 2. Category matching (supports both ObjectId and string slugs/names)
-if (category?.trim() && category !== "all") {
-    if (mongoose.Types.ObjectId.isValid(category.trim())) {
-        filter.category = category.trim();
-    } else {
-        // Match case-insensitively against name or slug
-        const foundCategory = await Category.findOne({
-            $or: [
-                { slug: new RegExp(`^${category.trim()}$`, "i") },
-                { name: new RegExp(`^${category.trim()}$`, "i") }
-            ]
-        });
-
-        if (foundCategory) {
-            filter.category = foundCategory._id;
+    if (category?.trim() && category !== "all") {
+        if (mongoose.Types.ObjectId.isValid(category.trim())) {
+            filter.category = category.trim();
         } else {
-            // If the category doesn't exist, return empty list rather than all products
-            filter.category = new mongoose.Types.ObjectId(); 
+            // Match case-insensitively against name or slug
+            const foundCategory = await Category.findOne({
+                $or: [
+                    { slug: new RegExp(`^${category.trim()}$`, "i") },
+                    { name: new RegExp(`^${category.trim()}$`, "i") }
+                ]
+            });
+
+            if (foundCategory) {
+                filter.category = foundCategory._id;
+            } else {
+                // If the category doesn't exist, return empty list rather than all products
+                filter.category = new mongoose.Types.ObjectId();
+            }
         }
     }
-}
     // 3. Price range filtering
     if (minPrice !== undefined || maxPrice !== undefined) {
         filter.price = {};
@@ -351,12 +364,46 @@ if (category?.trim() && category !== "all") {
 
     const totalProducts = await Product.countDocuments(filter);
 
-    const products = await Product.find(filter)
+    let products = await Product.find(filter)
         .populate("category", "name slug")
         .populate("seller", "name email")
         .sort(sortOptions)
         .skip(skip)
         .limit(limitNum);
+
+    let didYouMean = null;
+    let isGibberishFallback = false;
+
+    if (search?.trim() && products.length === 0) {
+        
+        const searchTerm = search.trim();
+        if (searchTerm.length >= 4) {
+            const firstChar = searchTerm.charAt(0);
+            const lastTwo = searchTerm.substring(searchTerm.length - 2);
+            
+            // This searches MongoDB for any product starting with 's' and ending with 'rt'
+            const typoRegex = new RegExp(`^${firstChar}.*${lastTwo}`, "i");
+            const similarProduct = await Product.findOne({ title: typoRegex });
+            
+            if (similarProduct) {
+                didYouMean = similarProduct.title.split(" ")[0].toLowerCase(); // Extracts "shirt"
+            }
+        }
+
+        // Attempt 2: Gibberish Fallback (If no similar product was found, serve snacks)
+        if (!didYouMean) {
+            isGibberishFallback = true;
+            products = await Product.find({
+                $or: [
+                    { title: /chocolate/i },
+                    { title: /snack/i },
+                    { title: /chips/i },
+                    { title: /candy/i },
+                    { title: /cookie/i }
+                ]
+            }).limit(4); // Show up to 4 snack items
+        }
+    }
 
     const totalPages = Math.ceil(totalProducts / limitNum);
 
@@ -365,6 +412,8 @@ if (category?.trim() && category !== "all") {
             200,
             {
                 products,
+                didYouMean,
+                isGibberishFallback,
                 pagination: {
                     totalProducts,
                     currentPage: pageNum,

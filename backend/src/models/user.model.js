@@ -59,6 +59,10 @@ const userSchema = new mongoose.Schema({
     address: {
         type: [addressSchema]
     },
+    wishlist: [{
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "Product",
+    }],
     tokenVersion: {
         type: Number,
         default: 0

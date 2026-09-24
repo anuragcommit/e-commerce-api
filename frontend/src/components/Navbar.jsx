@@ -3,6 +3,7 @@ import React, { useState, useEffect, useRef } from "react";
 import { Link, useNavigate, useLocation } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { useCart } from "../context/CartContext";
+import API from "../api/axios";
 
 const CATEGORIES = [
   { name: "For You", slug: "for-you" },
@@ -18,11 +19,17 @@ const CATEGORIES = [
 
 export default function Navbar() {
   const navigate = useNavigate();
-  const location = useLocation(); // 👈 Added to track current page
+  const location = useLocation();
   const { user, isAuthenticated, logout } = useAuth();
   const { cartCount } = useCart();
 
+  // Unified Search States
   const [searchTerm, setSearchTerm] = useState("");
+  const [suggestions, setSuggestions] = useState([]);
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const searchRef = useRef(null);
+
+  // Profile Dropdown States
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [activeCategory, setActiveCategory] = useState("for-you");
   const dropdownRef = useRef(null);
@@ -35,24 +42,46 @@ export default function Navbar() {
         (r) => r.toLowerCase() === "seller" || r.toLowerCase() === "admin",
       ));
 
+  // 1. Fetch Suggestions as user types
+  useEffect(() => {
+    const fetchSuggestions = async () => {
+      if (!searchTerm.trim()) return setSuggestions([]);
+      try {
+        const res = await API.get(`/products/suggestions?q=${searchTerm}`);
+        setSuggestions(res.data.data || []);
+      } catch (err) {
+        console.error(err);
+      }
+    };
+    const timer = setTimeout(fetchSuggestions, 200);
+    return () => clearTimeout(timer);
+  }, [searchTerm]);
+
+  // 2. Handle outside clicks to close both dropdowns safely
   useEffect(() => {
     const handleClickOutside = (e) => {
       if (dropdownRef.current && !dropdownRef.current.contains(e.target)) {
         setDropdownOpen(false);
+      }
+      if (searchRef.current && !searchRef.current.contains(e.target)) {
+        setShowSuggestions(false);
       }
     };
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
+  // 3. Handle Search Submission (routes to Shop Page)
   const handleSearchSubmit = (e) => {
     e.preventDefault();
+    setShowSuggestions(false);
     if (searchTerm.trim()) {
       navigate(`/?search=${encodeURIComponent(searchTerm.trim())}`);
+    } else {
+        navigate('/')
     }
   };
 
-  // 👈 Check if we are on the homepage to allow underlining
   const isHomePage = location.pathname === "/";
 
   return (
@@ -63,14 +92,25 @@ export default function Navbar() {
             <span style={navStyles.logo}>MyStore</span>
           </Link>
 
-          <form onSubmit={handleSearchSubmit} style={navStyles.searchForm}>
+          {/* SEARCH FORM WRAPPER */}
+          <form
+            onSubmit={handleSearchSubmit}
+            style={{
+              ...navStyles.searchForm,
+              position: "relative",
+              overflow: "visible",
+            }}
+            ref={searchRef}
+          >
             <input
               type="text"
               placeholder="Search for products, brands and more"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
+              onFocus={() => setShowSuggestions(true)}
               style={navStyles.searchInput}
             />
+
             <button
               type="submit"
               style={navStyles.searchBtn}
@@ -90,6 +130,50 @@ export default function Navbar() {
                 <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
               </svg>
             </button>
+
+            {/* SUGGESTIONS DROPDOWN (Now safely outside the input tag) */}
+            {showSuggestions && suggestions.length > 0 && (
+              <div
+                style={{
+                  position: "absolute",
+                  top: "100%",
+                  left: 0,
+                  right: 0,
+                  backgroundColor: "#fff",
+                  zIndex: 9999,
+                  boxShadow: "0 4px 12px rgba(0,0,0,0.15)",
+                  borderRadius: "0 0 4px 4px",
+                  border: "1px solid #eee",
+                  marginTop: "2px",
+                }}
+              >
+                {suggestions.map((sug) => (
+                  <div
+                    key={sug._id}
+                    onClick={() => {
+                      setSearchTerm(sug.title);
+                      setShowSuggestions(false);
+                      navigate(`/?search=${encodeURIComponent(sug.title)}`);
+                    }}
+                    style={{
+                      padding: "12px 16px",
+                      cursor: "pointer",
+                      borderBottom: "1px solid #f1f5f9",
+                      color: "#334155",
+                      fontSize: "0.95rem",
+                    }}
+                    onMouseEnter={(e) =>
+                      (e.target.style.backgroundColor = "#f8fafc")
+                    }
+                    onMouseLeave={(e) =>
+                      (e.target.style.backgroundColor = "transparent")
+                    }
+                  >
+                    🔍 {sug.title}
+                  </div>
+                ))}
+              </div>
+            )}
           </form>
 
           <div style={navStyles.rightActions}>
@@ -146,15 +230,13 @@ export default function Navbar() {
                     >
                       <span style={navStyles.itemIcon}>📦</span> My Orders
                     </Link>
-
                     <Link
                       to="/addresses"
                       onClick={() => setDropdownOpen(false)}
                       style={navStyles.dropdownItem}
                     >
-                     <span style={navStyles.itemIcon}>📍</span> Saved Addresses
+                      <span style={navStyles.itemIcon}>📍</span> Saved Addresses
                     </Link>
-
                     <Link
                       to="/wishlist"
                       onClick={() => setDropdownOpen(false)}
@@ -231,7 +313,6 @@ export default function Navbar() {
       <nav style={navStyles.subCategoryBar}>
         <div style={navStyles.subCategoryInner}>
           {CATEGORIES.map((cat) => {
-            // 👈 Only apply the green line if we are actually on the homepage
             const isActive = isHomePage && activeCategory === cat.slug;
             return (
               <button
@@ -295,7 +376,6 @@ const navStyles = {
     alignItems: "center",
     backgroundColor: "#ffffff",
     borderRadius: "4px",
-    overflow: "hidden",
     height: "40px",
   },
   searchInput: {
@@ -305,6 +385,7 @@ const navStyles = {
     padding: "0 14px",
     fontSize: "0.92rem",
     color: "#1e293b",
+    backgroundColor: "transparent",
   },
   searchBtn: {
     background: "none",
