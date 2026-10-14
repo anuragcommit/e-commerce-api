@@ -1,6 +1,6 @@
 import { Router } from "express"; 
 import { jwtVerify } from "../middlewares/auth.middleware.js"; 
-import { registerUser, loginUser, logOutUser, refreshAccessToken, getUserProfile, updateUserProfile, updateUserPassword, deleteUserAccount, deleteUserById, becomeSeller, deleteSellerAccount, forgotPassword, addAddress, deleteAddress, updateAddress, getMyAddresses, getMyWishlist, toggleWishlist } from "../controllers/users.controller.js"; 
+import { registerUser, loginUser, logOutUser, refreshAccessToken, getUserProfile, updateUserProfile, updateUserPassword, deleteUserAccount, deleteUserById, becomeSeller, deleteSellerAccount, forgotPassword, addAddress, deleteAddress, updateAddress, getMyAddresses, getMyWishlist, toggleWishlist, getDashboardStats, getAllUsersAdmin } from "../controllers/users.controller.js"; 
 import { verifyAdmin } from "../middlewares/admin.middleware.js";
 
 const router = Router();
@@ -29,6 +29,8 @@ router.route('/forgot-password').post(forgotPassword);
 
 //admin only
 router.route('/:userId').delete(jwtVerify, verifyAdmin, deleteUserById);
+router.route('/admin/stats').get(jwtVerify, verifyAdmin, getDashboardStats);
+router.route('/admin/users').get(jwtVerify, verifyAdmin, getAllUsersAdmin);
 
 
 export default router;

@@ -42,6 +42,10 @@ export default function Navbar() {
         (r) => r.toLowerCase() === "seller" || r.toLowerCase() === "admin",
       ));
 
+  const isAdmin =
+    user?.role === "admin" ||
+    (Array.isArray(user?.roles) && user.roles.includes("admin"));
+
   // 1. Fetch Suggestions as user types
   useEffect(() => {
     const fetchSuggestions = async () => {
@@ -78,7 +82,7 @@ export default function Navbar() {
     if (searchTerm.trim()) {
       navigate(`/?search=${encodeURIComponent(searchTerm.trim())}`);
     } else {
-        navigate('/')
+      navigate("/");
     }
   };
 
@@ -245,6 +249,18 @@ export default function Navbar() {
                       <span style={navStyles.itemIcon}>❤️</span> Wishlist
                     </Link>
                     <div style={navStyles.divider} />
+                    
+                    {isAdmin && (
+                      <Link
+                        to="/admin"
+                        onClick={() => setDropdownOpen(false)}
+                        style={navStyles.dropdownItem}
+                      >
+                        <span style={navStyles.itemIcon}>👑</span> Admin
+                        Dashboard
+                      </Link>
+                    )}
+
                     {isSeller ? (
                       <Link
                         to="/seller/dashboard"

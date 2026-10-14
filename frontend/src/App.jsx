@@ -20,6 +20,7 @@ import WriteReviewPage from "./pages/WriteReviewPage";
 import CheckoutPage from "./pages/CheckoutPage";
 import MyOrdersPage from "./pages/MyOrdersPage";
 import SavedAddressesPage from "./pages/SavedAddressesPage";
+import AdminDashboard from "./pages/AdminDashboard";
 
 
 // Sample full-width banner & product grid matching Amazon reference
@@ -48,6 +49,8 @@ export default function App() {
             <Route path="/product/:productId/write-review" element={<WriteReviewPage />} />
             <Route path="/checkout" element={<CheckoutPage />} />
             <Route path="/addresses" element={<SavedAddressesPage />} />
+            <Route path="/admin" element={<AdminDashboard />} />
+
             
             //404 unmatched route catching
             <Route

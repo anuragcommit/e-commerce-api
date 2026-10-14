@@ -694,6 +694,41 @@ const toggleWishlist = asyncHandler(async (req, res) => {
 
 
 
+//admin controls
+
+export const getDashboardStats = asyncHandler(async (req, res) => {
+    // Count all documents across major collections
+    const totalUsers = await User.countDocuments();
+    const totalProducts = await Product.countDocuments();
+    
+    // Fallback logic if Order model isn't fully implemented yet
+    let totalOrders = 0;
+    let totalRevenue = 0;
+    
+    try {
+        const { Order } = await import("../models/order.model.js");
+        totalOrders = await Order.countDocuments();
+        const deliveredOrders = await Order.find({ orderStatus: "delivered" });
+        totalRevenue = deliveredOrders.reduce((acc, order) => acc + (order.totalAmount || 0), 0);
+    } catch (error) {
+        console.log("Order model not found or queried, skipping order stats.");
+    }
+
+    return res.status(200).json(
+        new ApiResponse(200, { totalUsers, totalProducts, totalOrders, totalRevenue }, "Admin stats fetched successfully")
+    );
+});
+
+export const getAllUsersAdmin = asyncHandler(async (req, res) => {
+    // Fetch all users, excluding sensitive fields, newest first
+    const users = await User.find().select("-password -refreshToken").sort({ createdAt: -1 });
+    return res.status(200).json(
+        new ApiResponse(200, users, "Users fetched successfully")
+    );
+});
+
+
+
 export {
     registerUser,
     loginUser,
